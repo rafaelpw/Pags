@@ -1,0 +1,236 @@
+---
+title: "Lista 4"
+author: "RPW"
+date: "20/04/2024"
+output: html_document
+---
+
+```{r}
+source('functions.R')
+```
+
+## Lista 4 - Penalized complexity priors
+
+<br>
+<br>
+
+
+A ideia principal é associar as prioris à “distâncias” entre modelos, ao invés de associar a parâmetros.
+<br>
+Em Peng e Dey[1], é apresentada uma medida entre um modelo ($\pi(\boldsymbol(\theta)|\textbf(y))$ e sua versão perturbada ($\pi_{\delta}(\boldsymbol(\theta)|\textbf(y)$) por meio de uma medida generalizada ("$\phi$-divergência"):
+<br>
+$$D_{\phi} = D(\pi(\boldsymbol{\theta}|\textbf{y}),\pi_{\delta}(\boldsymbol{\theta},|\textbf{y})) = \int \phi \Big( \frac{\pi_{\delta}(\boldsymbol{\theta},|\textbf{y})} {\pi(\boldsymbol{\theta},|\textbf{y})}\Big) \pi(\boldsymbol{\theta}|\textbf{y}) d\theta $$
+<br>
+Onde $\delta$ indica uma perturbação da distribuição a posteriori e $\phi$ uma função convexa com $\phi(1)=0$
+
+A escolha de $\phi$ pode definir medidas de distância usuais, como:
+
+$\phi(x) = - \log x \rightarrow$ Divergência de Kullback-leibr
+
+$\phi(x) = (\sqrt(x)-1)^{2}/2 \rightarrow$ Distância de Hellinger
+
+$\phi(x) = \frac{1}{2}|x-1| \rightarrow$ Norma $L{1}$
+
+
+Para a lista 4, será considerada apenas a divergência de Kullback-Leibr
+
+
+### Modelo Binomial:
+
+Considerando uma moeda enviesada com probabilidade de sucesso $p$, a $\phi$-divergência entre a moeda enviesada e uma moeda não viesada é:
+
+$$D(f_{0},f_{1}) = \int \phi \Big(\frac{f_{0}(x)}{f_{1}(x)}\Big)f_{1}(x)dx$$
+Onde $f_{0}(x)=p^{x}(1-p)^{1-x}$ and $f_{1}(x)=\frac{1}{2}, x=0,1$.
+
+
+De modo que:
+$$D(f_{0},f_{1})=d=\frac{\phi(2p)+\phi\big(2(1-p)\big)}{2}$$
+<br>
+
+No caso da divergência de Kullbak-Leibr:
+
+```{r}
+p_vec=seq(0,1,0.025)
+Norma="KL"
+d_vec=c()
+for(i in 1:length(p_vec)){
+d_vec[i]=(Phi(2*p_vec[i],Norma)+Phi(2*(1-p_vec[i]),Norma))/2
+}
+plot(p_vec,d_vec, main=c("Norma ", Norma))
+```
+<br>
+
+No caso da Divergência de Kullback-Liber:
+
+$$d(p)=-\frac{\log(2p)+log(2(1-p))}{2}$$
+<br>
+$$\frac{\partial}{\partial p}d(p)=-\frac{1}{2p}+\frac{1}{2(1-p)}$$
+<br>
+# Lista 4 - Penalized Complexity Priror [2,3]
+
+<br>
+Complex model: $f(x|\xi)$
+
+Modelo base: $f(x|\xi=0)$
+
+$$d(\xi) = d(f(x|\xi),f(x|\xi=0))$$
+Priori fraca com taxa de penalisação:
+
+$$\pi(\xi)=\lambda e^{-\lambda d(\xi)} \hspace{0.1cm}|\frac{\partial d(\xi)}{\partial \xi}| $$
+
+
+Binomial model case from [1]
+
+$$\pi(p)=\lambda e^{-\lambda d(p)} \hspace{0.1cm}|\frac{\partial d(p)}{\partial p}| $$
+
+
+How do you select $\lambda$? Select $\lambda$ such that $P[Q(\xi) > U]= \alpha$.
+
+
+
+```{r}
+lambda=1.0
+p_vec=seq(0,1,0.01)
+p_vec<-p_vec[-c(1,length(p_vec)/2+1,length(p_vec))]
+prior_p_vec = c()
+for(i in 1:length(p_vec)){
+  p<-p_vec[i]
+  pi_p<-(lambda*exp(-lambda*dp_bin(p)))*abs(dp_bin_par(dp_bin(p)))
+  prior_p_vec[i]<-sqrt(pi_p^2)
+}
+plot(p_vec,prior_p_vec, type="l",lwd=2, col="blue", xlab="p", ylab=expression(pi(p)))
+text(x=c(0.10,0.15,0.20), y=0.95*max(prior_p_vec), labels=c(expression(lambda),"=",lambda))
+par(new = TRUE)
+plot(p_vec, dist, type = "l", lty=2, lwd=2, col="grey", axes = FALSE, bty = "n", xlab = "", ylab = "")
+axis(side=4, at = pretty(range(dist)))
+mtext("d(p)", side=4,)
+```
+
+
+
+*"The tuning parameter λ is selected to control the rate of contraction of the PC prior towards the baseline model. The intuition behind this prior is to choose λ such that the prior probability of observing a model far from the baseline is small. This can be achieved by defining two quantities:
+(i) a quantile W of the distance between the flexible distribution and the baseline, and (ii) its associated probability pW . With that information and the following equality"* [3]
+
+
+$Pr\{d(\xi)>W\}=p_{W}=\exp{(-\lambda W)}$
+$\lambda=-log(p_{W})/U$
+
+
+Como uma priori fracamente informativa, essa priori exige que o usuário possua apenas uma noção dos parâmetros de interesse do modelo.
+
+Assim, o valor de $\lambda$ pode ser definido controlando o peso da causa da distribuição exponencial, por meio de uma condição na forma:
+
+$Pr\{Q(\xi)>U\}=\alpha \hspace{1cm} e \hspace{1cm} \lambda=-\frac{log(\alpha)}{U}$ 
+
+Onde $U$ é um limite superior flexível definido pelo usuário com base no que pode ser entendido como um *tail event* e  $\alpha$ o respectivo peso atribuído à esse vento.
+
+Como a definição dessa priori parte inicialmente da distância $d$, esse parâmentro é invariante à reparametrização.  
+
+
+A reprodução da Figura 1b em Simpson, 2017, demonstra o comportamento da PCP($\alpha=0.01, U=0.968$) comparado à uma distribuição $\Gamma(1,0.0076)$, que possui densidade 0 quando a distância é 0, portanto não previne contra *overfitting*.
+
+
+
+```{r}
+alpha=0.01
+U=0.968
+lambda=-log(alpha)/U 
+p_vec=seq(0,1,0.01)
+p_vec<-p_vec[-c(1,length(p_vec)/2+1,length(p_vec))]
+prior_p_vec = c()
+d_vec<-c()
+for(i in 1:length(p_vec)){
+  p<-p_vec[i]
+  d_vec[i]<-dp_bin(p)
+  pi_p<-(lambda*exp(-lambda*dp_bin(p)))
+  #*abs(dp_bin_par(dp_bin(p)))
+  prior_p_vec[i]<-sqrt(pi_p^2)
+}
+
+textol<-paste0(expression(lambda)," = ",round(lambda,2))
+plot(d_vec,prior_p_vec, type="l",lwd=2, col="blue", xlab="Distance", ylab="Densidade", lty=3, main = "Fig 1b - Simpson et. al. [2]", ylim = c(0,10))
+curve(dgamma(x, shape = 1.00001, scale = 0.0076), from = 0, to = 2, col = alpha("darkgrey",0.5), lwd=2, add = TRUE)
+text(x=0.85*max(d_vec), y=0.95*max(prior_p_vec), labels=textol)
+txtleg<-expression(Gamma*"("*shape~"= 1, "~rate~" = 0.0076)")
+legend("topright", legend=c("PCPrior", txtleg), col=c("blue",alpha("darkgrey",0.5)), lty=c(3,1))
+
+```
+
+
+
+
+
+Ao aumentar o peso da cauda há maior penalização para pequenas perturbações em relação ao modelo base e maior risco de *overfitting*. No entanto, valores de $U$ e $\alpha$ que diminuem o comportamento de cauda. Desse modo, o parâmetro $\lambda$ define a magnitude da informatividade da priori.
+
+```{r}
+alpha=c(0.01,0.05,0.3)
+U=c(0.968,0.37,0.5)
+p_vec=seq(0,1,0.01)
+p_vec<-p_vec[-c(1,length(p_vec)/2+1,length(p_vec))]
+prior_p_vec = c()
+d_vec<-c()
+mtx_prior_p_vec<-matrix(0,nrow=3,ncol=length(p_vec))
+mtx_d_vec<-matrix(0,nrow=3,ncol=length(p_vec))
+
+for(j in 1:3){
+lambda=-log(alpha[j])/U[j]
+  for(i in 1:length(p_vec)){
+    p<-p_vec[i]
+    d_vec[i]<-dp_bin(p)
+    pi_p<-(lambda*exp(-lambda*dp_bin(p)))
+    #*abs(dp_bin_par(dp_bin(p)))
+    prior_p_vec[i]<-sqrt(pi_p^2)
+  }
+mtx_prior_p_vec[j,]<-prior_p_vec
+mtx_d_vec[j,]<-d_vec  
+  }
+
+
+cores=c("blue","red","green")
+textol<-paste0(expression(lambda)," = ",round(lambda,2))
+plot(mtx_d_vec[1,],mtx_prior_p_vec[1,], type="l",lwd=2, col=cores[1], xlab="Distancia", ylab="Densidade", lty=3, main = c(expression(pi(p))), ylim = c(0,7))
+points(mtx_d_vec[2,],mtx_prior_p_vec[2,], type="l",lwd=2, col=cores[2], xlab="Distance", ylab=expression(pi(p)), lty=3, main = "Fig 1b - Simpson et. al. [2]", ylim =c(0,7))
+points(mtx_d_vec[3,],mtx_prior_p_vec[3,], type="l",lwd=2, col=cores[3], xlab="Distance", ylab=expression(pi(p)), lty=3, main = "Fig 1b - Simpson et. al. [2]", ylim =c(0,7))
+
+
+txtleg<-paste(paste(expression(alpha),"=",alpha),paste("U=",U))
+legend("topright", legend=txtleg, col=cores, lty=c(3,3,3))
+
+
+
+```
+
+
+
+
+```{}
+
+```
+
+Aplicação no projeto:
+
+```{}
+
+```
+
+
+Referências:
+
+[1]  Peng, Fengchun, and Dipak K. Dey. “Bayesian Analysis of Outlier Problems Using Divergence Measures.” The Canadian Journal of Statistics / La Revue Canadienne de Statistique 23, no. 2 (1995): 199–213. https://doi.org/10.2307/3315445.
+
+[2]  Simpson, Daniel, Håvard Rue, Andrea Riebler, Thiago G. Martins, and Sigrunn H. Sørbye. “Penalising Model Component Complexity: A Principled, Practical Approach to Constructing Priors.” Statistical Science 32, no. 1 (2017): 1–28. http://www.jstor.org/stable/26408114.
+
+[3]  Ordoñez, J. A., Prates, M. O., Bazán, J. L., & Lachos, V. H. (2024). Penalized complexity priors for the skewness parameter of power links. Revue Canadienne de Statistique [The Canadian Journal of Statistics], 52(1), 98–117. https://doi.org/10.1002/cjs.11769
+
+```{}
+
+```
+
+
+
+
+```{}
+
+```
+
+
